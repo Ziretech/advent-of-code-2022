@@ -1,14 +1,31 @@
 import java.util.*;
 
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
+
 public class Day9 {
     public static void main(String[] args) {
         var lines = read();
+//        var lines = example();
 
         var motions = Motions.build(lines);
         var headCoordinates = motions.getHeadCoordinates();
         System.out.println("headCoordinates = " + headCoordinates);
         var tailCoordinates = TailCoordinates.build(headCoordinates);
         System.out.println("tailCoordinates.amountOfUniqueCoordinates() = " + tailCoordinates.amountOfUniqueCoordinates());
+    }
+
+    private static Collection<String> example() {
+        return Arrays.asList("""
+                R 4
+                U 4
+                L 3
+                D 1
+                R 4
+                D 1
+                L 5
+                R 2
+                """.split("\n"));
     }
 
     private static ArrayList<String> read() {
@@ -55,6 +72,10 @@ public class Day9 {
             return this.coordinates.get(this.coordinates.size() - 1);
         }
 
+        public Collection<Coordinate> coordinates() {
+            return coordinates;
+        }
+
         @Override
         public String toString() {
             return "HeadCoordinates{" +
@@ -63,108 +84,37 @@ public class Day9 {
         }
     }
 
-    private static abstract class Motion {
+    private static class Motion {
 
         protected final int steps;
+        private final Direction direction;
 
-        private Motion(int steps) {
+        private Motion(int steps, Direction direction) {
             this.steps = steps;
+            this.direction = direction;
         }
 
         public static Motion build(String code) {
-            System.out.println("code = " + code);
             var components = code.split(" ");
-            System.out.println("components = " + Arrays.stream(components).toList());
             var directionCode = components[0];
-            System.out.println("components[1] = " + components[1]);
             var steps = Integer.parseInt(components[1]);
-            System.out.println("steps = " + steps);
-            return new Up(steps);
-//            return switch (directionCode) {
-//                case Up.CODE -> new Up(steps);
-//                case Down.CODE -> new Down(steps);
-//                case Left.CODE -> new Left(steps);
-//                case Right.CODE -> new Right(steps);
-//                default -> throw new IllegalArgumentException("Unknown input '%s'".formatted(code));
-//            };
+            return switch (directionCode) {
+                case "U" -> new Motion(steps, Direction.UP);
+                case "D" -> new Motion(steps, Direction.DOWN);
+                case "L" -> new Motion(steps, Direction.LEFT);
+                case "R" -> new Motion(steps, Direction.RIGHT);
+                default -> throw new IllegalArgumentException("Unknown input '%s'".formatted(code));
+            };
         }
 
-        public abstract Collection<Coordinate> getCoordinates(Coordinate currentCoordinate);
-
-        private static class Up extends Motion {
-            public static final String CODE = "U";
-
-            public Up(int steps) {
-                super(steps);
+        public Collection<Coordinate> getCoordinates(Coordinate initialCoordinate) {
+            var coordinates = new ArrayList<Coordinate>();
+            Coordinate currentCoordinate = initialCoordinate;
+            for (var i = 0; i < steps; i++) {
+                currentCoordinate = currentCoordinate.nextCoordinate(direction);
+                coordinates.add(currentCoordinate);
             }
-
-            @Override
-            public Collection<Coordinate> getCoordinates(Coordinate currentCoordinate) {
-                var coordinates = new ArrayList<Coordinate>();
-                Coordinate next;
-                for (var i = 0; i < steps; i++) {
-                    next = currentCoordinate.up();
-                    coordinates.add(next);
-                }
-                return coordinates;
-            }
-        }
-
-        private static class Down extends Motion {
-            public static final String CODE = "D";
-
-            public Down(int steps) {
-                super(steps);
-            }
-
-            @Override
-            public Collection<Coordinate> getCoordinates(Coordinate currentCoordinate) {
-                var coordinates = new ArrayList<Coordinate>();
-                Coordinate next;
-                for (var i = 0; i < steps; i++) {
-                    next = currentCoordinate.down();
-                    coordinates.add(next);
-                }
-                return coordinates;
-            }
-        }
-
-        private static class Left extends Motion{
-            public static final String CODE = "L";
-
-            public Left(int steps) {
-                super(steps);
-            }
-
-            @Override
-            public Collection<Coordinate> getCoordinates(Coordinate currentCoordinate) {
-                var coordinates = new ArrayList<Coordinate>();
-                Coordinate next;
-                for (var i = 0; i < steps; i++) {
-                    next = currentCoordinate.left();
-                    coordinates.add(next);
-                }
-                return coordinates;
-            }
-        }
-
-        private static class Right extends Motion {
-            public static final String CODE = "R";
-
-            public Right(int steps) {
-                super(steps);
-            }
-
-            @Override
-            public Collection<Coordinate> getCoordinates(Coordinate currentCoordinate) {
-                var coordinates = new ArrayList<Coordinate>();
-                Coordinate next;
-                for (var i = 0; i < steps; i++) {
-                    next = currentCoordinate.right();
-                    coordinates.add(next);
-                }
-                return coordinates;
-            }
+            return coordinates;
         }
     }
 
@@ -178,20 +128,8 @@ public class Day9 {
             this.y = y;
         }
 
-        public Coordinate up() {
-            return new Coordinate(x, y + 1);
-        }
-
-        public Coordinate down() {
-            return new Coordinate(x, y - 1);
-        }
-
-        public Coordinate left() {
-            return new Coordinate(x - 1, y);
-        }
-
-        public Coordinate right() {
-            return new Coordinate(x + 1, y);
+        public Coordinate nextCoordinate(Direction direction) {
+            return new Coordinate(x + direction.x(), y + direction.y());
         }
 
         @Override
@@ -201,15 +139,65 @@ public class Day9 {
                     ", y=" + y +
                     '}';
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Coordinate that)) return false;
+            return x == that.x && y == that.y;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(x, y);
+        }
+
+        public int distanceTo(Coordinate other) {
+            return max(abs(other.x - x), abs(other.y - y));
+        }
+
+        public Direction directionTo(Coordinate head) {
+            return new Direction(maxAbs1(head.x - x), maxAbs1(head.y - y));
+        }
+
+        private int maxAbs1(int value) {
+            return value > 1 ? 1 : max(value, -1);
+        }
+    }
+
+    private record Direction(int x, int y) {
+        public static Direction UP = new Direction(0, 1);
+        public static Direction DOWN = new Direction(0, -1);
+        public static Direction RIGHT = new Direction(1, 0);
+        public static Direction LEFT = new Direction(-1, 0);
     }
 
     private static class TailCoordinates {
+        private final Collection<Coordinate> coordinates;
+
+        public TailCoordinates(Collection<Coordinate> coordinates) {
+            this.coordinates = coordinates;
+        }
+
         public static TailCoordinates build(HeadCoordinates headCoordinates) {
-            return null;
+            var coordinates = new ArrayList<Coordinate>();
+            var currentPosition = Coordinate.START;
+            coordinates.add(currentPosition);
+
+            for (var head : headCoordinates.coordinates()) {
+                if(currentPosition.distanceTo(head) > 1) {
+                    var direction = currentPosition.directionTo(head);
+                    System.out.println("direction = " + direction);
+                    currentPosition = currentPosition.nextCoordinate(direction);
+                    coordinates.add(currentPosition);
+                }
+            }
+            System.out.println("coordinates = " + coordinates);
+            return new TailCoordinates(coordinates);
         }
 
         public int amountOfUniqueCoordinates() {
-            return 0;
+            return coordinates.stream().distinct().toList().size();
         }
     }
 }
